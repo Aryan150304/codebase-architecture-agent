@@ -5,6 +5,7 @@ description = "LLM agent that answers architecture questions about a codebase wi
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "google-genai>=1.0",
     "pgvector>=0.3.6",
     "psycopg[binary]>=3.2",
     "sentence-transformers>=3.0,<4",

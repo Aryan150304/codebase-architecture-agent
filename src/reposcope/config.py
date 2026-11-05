@@ -24,6 +24,20 @@ def load_settings() -> Settings:
     )
 
 
+@dataclass(frozen=True)
+class GeminiSettings:
+    api_key: str
+    model: str
+
+
+def load_gemini_settings() -> GeminiSettings:
+    """Read separately from `load_settings`, so ingestion does not need an API key."""
+    return GeminiSettings(
+        api_key=require_env("GEMINI_API_KEY"),
+        model=require_env("GEMINI_MODEL"),
+    )
+
+
 def parse_extensions(value: str) -> tuple[str, ...]:
     extensions = tuple(item.strip() for item in value.split(",") if item.strip())
     if not extensions:
