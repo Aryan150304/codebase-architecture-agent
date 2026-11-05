@@ -1,10 +1,13 @@
 """Chunk storage: schema, engine and schema creation."""
 
+from collections.abc import Sequence
+
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Engine, Integer, String, Text, create_engine, text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Engine, Integer, String, Text, create_engine, delete, text
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from reposcope.config import load_settings
+from reposcope.ingestion import Chunk
 
 EMBEDDING_DIM = 768
 """Output dimension of jinaai/jina-embeddings-v2-base-code."""
@@ -36,6 +39,31 @@ def create_schema(engine: Engine) -> None:
     with engine.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(engine)
+
+
+def replace_chunks(
+    session: Session,
+    chunks: Sequence[Chunk],
+    embeddings: Sequence[Sequence[float]],
+) -> int:
+    """Replace every stored chunk, so re-ingesting a repository does not duplicate rows."""
+    if len(chunks) != len(embeddings):
+        raise ValueError(f"got {len(chunks)} chunks but {len(embeddings)} embeddings")
+    session.execute(delete(ChunkRow))
+    session.add_all(
+        [
+            ChunkRow(
+                path=chunk.path,
+                start_line=chunk.start_line,
+                end_line=chunk.end_line,
+                content=chunk.content,
+                embedding=list(embedding),
+            )
+            for chunk, embedding in zip(chunks, embeddings, strict=True)
+        ]
+    )
+    session.commit()
+    return len(chunks)
 
 
 def main() -> None:

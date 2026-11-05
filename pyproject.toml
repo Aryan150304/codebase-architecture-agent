@@ -7,8 +7,15 @@ requires-python = ">=3.12"
 dependencies = [
     "pgvector>=0.3.6",
     "psycopg[binary]>=3.2",
+    "sentence-transformers>=3.0,<4",
     "sqlalchemy>=2.0.36",
+    # jina-embeddings-v2-base-code ships modeling code that imports internals
+    # removed in transformers 5, so it only loads under the 4.x line.
+    "transformers>=4.44,<5",
 ]
+
+[project.scripts]
+reposcope = "reposcope.cli:main"
 
 [dependency-groups]
 dev = [
