@@ -1,3 +1,4 @@
+import inspect
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from reposcope.ingestion import Chunk
 from reposcope.tools import (
     MAX_GREP_MATCHES,
     MAX_READ_LINES,
+    TOOL_SPECS,
     Tools,
     grep_code,
     read_file,
@@ -202,3 +204,16 @@ def test_call_reports_wrong_arguments(session: Session) -> None:
     result = tools.call("read_file", {"path": GREETER, "start": 1})
 
     assert result.startswith("error: wrong arguments for read_file:")
+
+
+def test_tool_specs_match_the_tool_functions() -> None:
+    functions = {"semantic_search": semantic_search, "read_file": read_file, "grep_code": grep_code}
+    bound = {"session", "embedder", "repo_root", "subpath", "extensions"}
+
+    assert {spec.name for spec in TOOL_SPECS} == set(functions)
+    for spec in TOOL_SPECS:
+        signature = inspect.signature(functions[spec.name]).parameters
+        exposed = {name for name in signature if name not in bound}
+        required = {name for name in exposed if signature[name].default is inspect.Parameter.empty}
+        assert set(spec.parameters["properties"]) == exposed, spec.name
+        assert set(spec.parameters["required"]) == required, spec.name
