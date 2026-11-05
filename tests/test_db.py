@@ -1,11 +1,13 @@
 import math
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from reposcope.db import EMBEDDING_DIM, ChunkRow
+from reposcope.db import EMBEDDING_DIM, ChunkRow, replace_chunks
+from reposcope.ingestion import Chunk
+from tests.fakes import FakeEmbedder
 
 pytestmark = pytest.mark.db
 
@@ -63,6 +65,26 @@ def test_cosine_distance_orders_results_by_similarity(session: Session) -> None:
     ).all()
 
     assert [row.path for row in nearest] == ["exact.java", "near.java", "far.java"]
+
+
+def test_replace_chunks_is_idempotent(session: Session) -> None:
+    chunks = [
+        Chunk("Job.java", 1, 40, "public class Job {"),
+        Chunk("Job.java", 31, 70, "  public void submit() {"),
+    ]
+    embeddings = FakeEmbedder().encode([chunk.content for chunk in chunks])
+
+    replace_chunks(session, chunks, embeddings)
+    replace_chunks(session, chunks, embeddings)
+
+    assert session.scalar(select(func.count()).select_from(ChunkRow)) == 2
+
+
+def test_replace_chunks_rejects_mismatched_input_lengths(session: Session) -> None:
+    chunks = [Chunk("Job.java", 1, 40, "public class Job {")]
+
+    with pytest.raises(ValueError, match="1 chunks but 0 embeddings"):
+        replace_chunks(session, chunks, [])
 
 
 def test_wrong_embedding_dimension_is_rejected(session: Session) -> None:
