@@ -11,7 +11,8 @@ to
 `hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce`
 — 332 Java files.
 
-Status: v0.1 (walking skeleton) in progress. Ingestion works; tools, agent, API and eval are next.
+Status: v0.1 (walking skeleton) in progress. Ingestion, the three tools and the Gemini layer
+exist; the agent loop, API and eval are next.
 
 ## Requirements
 
@@ -30,6 +31,10 @@ psql reposcope_test -c "CREATE EXTENSION vector;"
 uv sync
 uv run --env-file .env python -m reposcope.db
 ```
+
+Set `GEMINI_API_KEY` (from Google AI Studio) and `GEMINI_MODEL` in `.env` to run the agent.
+The model name is configuration rather than code because Google retires models on its own
+schedule. Ingestion and the test suite need neither.
 
 ## Ingestion
 

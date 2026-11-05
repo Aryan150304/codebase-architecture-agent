@@ -88,3 +88,38 @@ Three things this suggests:
 - **Adjacent chunks both surfaced**, so one of three result slots repeated lines the model
   already had. Overlap helps recall and costs context. Candidate triggers: deduplicating
   adjacent ranges, or symbol-level chunking so that chunk boundaries follow methods.
+
+### 2026-11-05 — Choosing a Gemini model that is actually served
+
+**Problem.** The first live call with `GEMINI_MODEL=gemini-2.5-flash` failed:
+
+```
+404 NOT_FOUND: This model models/gemini-2.5-flash is no longer available to new users.
+Please update your code to use models/gemini-3.8-flash
+```
+
+Google's deprecations page still listed 2.5 Flash as served with no shutdown date, so the
+documentation and the API disagreed. The API is the one that counts. Switching to the suggested
+`gemini-3.8-flash` then returned `503 UNAVAILABLE: This model is currently experiencing high
+demand`, a capacity error rather than a problem in our request.
+
+**Change.** `.env.example` now defaults to `gemini-3.5-flash-lite`, the model that worked. No code
+changed: the model name was already configuration, which is exactly why it was put there.
+
+**Result.** A full two-turn round trip succeeded against the real API, confirming the parts that
+unit tests cannot: the format of tool results sent back to Gemini and the replay of the model's
+own turn. Both errors surfaced as a single `LLMError` with the status code and message.
+
+**Not changed.** No retry was added for the 503. One failure on a manual check is not yet a
+problem the eval has shown, and the traceback shows the SDK already retries internally through
+`tenacity`. If the eval later fails on 429 or 503, the first task is to read the SDK's retry
+settings before adding our own, so the two do not compound.
+
+### 2026-11-05 — The model used grep to look for a file name (no change yet)
+
+Asked to "read lines 70 to 90 of JobSubmitter.java", the model called
+`grep_code("JobSubmitter\.java")`. `grep_code` searches file contents, so it found nothing, and
+the model recovered on the next turn with `semantic_search("JobSubmitter")`. No tool locates a file
+by name, so a question that names a file costs at least one wasted call. Candidate fixes: say
+explicitly in the `grep_code` description that it matches contents, or add a file-finding tool.
+The eval will show whether this costs answers or only tool calls.
