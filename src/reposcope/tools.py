@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from reposcope.db import ChunkRow
 from reposcope.embedding import Embedder
 from reposcope.ingestion import iter_source_files
+from reposcope.llm import ToolSpec
 
 DEFAULT_K = 5
 MAX_K = 10
@@ -23,6 +24,63 @@ MAX_RESULT_CHARS = 8000
 MAX_SNIPPET_CHARS = 1500
 MAX_READ_LINES = 200
 MAX_GREP_MATCHES = 50
+
+TOOL_SPECS = (
+    ToolSpec(
+        name="semantic_search",
+        description=(
+            "Find code by meaning. Describe what you are looking for in natural language and get "
+            "the closest snippets, each headed by path:start-end. Good for locating where a "
+            "concept is handled. Weak at finding an exact name, which grep_code does better."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "What to look for, in natural language.",
+                },
+                "k": {
+                    "type": "integer",
+                    "description": f"Snippets to return, 1 to {MAX_K}. Defaults to {DEFAULT_K}.",
+                },
+            },
+            "required": ["query"],
+        },
+    ),
+    ToolSpec(
+        name="read_file",
+        description=(
+            "Read lines of a source file. Paths are relative to the repository root, exactly as "
+            f"they appear in search results. Returns numbered lines, at most {MAX_READ_LINES} per "
+            "call, so read long files in ranges."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "File path relative to the repository."},
+                "start_line": {"type": "integer", "description": "First line, counting from 1."},
+                "end_line": {"type": "integer", "description": "Last line, inclusive."},
+            },
+            "required": ["path", "start_line", "end_line"],
+        },
+    ),
+    ToolSpec(
+        name="grep_code",
+        description=(
+            "Search every source file for lines matching a regular expression (Python re "
+            f"syntax). Returns path:line: text for each match, up to {MAX_GREP_MATCHES}. Good for "
+            "exact names such as a class or method. Narrow the pattern if results are cut off."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string", "description": "Regular expression to search for."},
+            },
+            "required": ["pattern"],
+        },
+    ),
+)
 
 
 def semantic_search(session: Session, embedder: Embedder, query: str, k: int = DEFAULT_K) -> str:
