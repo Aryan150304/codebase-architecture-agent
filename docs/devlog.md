@@ -61,3 +61,30 @@ cheap and lossless defensible. This couples chunk size to `MAX_SEQ_LENGTH`: rais
 
 **Result.** 2141 chunks embedded and stored in 3m15s, 268 batches at 1.37 batches/second, no
 memory errors.
+
+### 2026-11-05 — First retrieval observations (no change yet)
+
+The tools are in place, so semantic search could be run against the 2141 ingested chunks for the
+first time. Recorded here as evidence for later versions; nothing was changed in response,
+because v0.1 needs baseline eval numbers before any of it can be called an improvement.
+
+Query: "how is a job submitted to the cluster", k=3.
+
+1. `ClusterMetrics.java:181-220` — `getTotalJobSubmissions()`, a metrics getter. A false
+   positive: it matched the words "job submissions" and "cluster" rather than the mechanism.
+2. `Job.java:1651-1690` — `submit()` calling `submitter.submitJobInternal(Job.this, cluster)`.
+   The correct answer, at rank 2.
+3. `Job.java:1681-1720` — `waitForCompletion`, overlapping the previous hit by 10 lines.
+
+Three things this suggests:
+
+- **The correct chunk ranked second.** A single-search RAG baseline would answer this question
+  from a metrics getter. This is the clearest motivation so far for the agent loop, and the
+  baseline in step 7 should show it as a measured difference rather than an assumption.
+- **`JobSubmitter.java` did not appear at all**, although it is the class that performs the
+  submission, while `grep_code "class JobSubmitter"` located it immediately at line 70. Semantic
+  search found the caller; lexical search found the implementation. Candidate trigger for the
+  dependency-graph and `find_symbol` tools.
+- **Adjacent chunks both surfaced**, so one of three result slots repeated lines the model
+  already had. Overlap helps recall and costs context. Candidate triggers: deduplicating
+  adjacent ranges, or symbol-level chunking so that chunk boundaries follow methods.
